@@ -84,9 +84,8 @@ log "Verifying checksum"
 EXPECTED="$(grep " ${ARCHIVE}\$" "${WORK}/${CHECKSUMS}" | awk '{print $1}')"
 [[ -n "$EXPECTED" ]] || fail "No checksum entry for ${ARCHIVE} in ${CHECKSUMS}"
 
-# Read via stdin: GNU sha256sum escapes its output line with a leading `\`
-# when the filename contains backslashes (Windows paths), which corrupts the
-# parsed hash. Feeding stdin yields a filename of "-" with no escaping.
+# Read via stdin: GNU sha256sum escapes its output line with a leading `\` when the filename contains
+# backslashes (Windows paths), which corrupts the parsed hash. Feeding stdin yields a filename of "-" with no escaping.
 if command -v sha256sum >/dev/null 2>&1; then
   ACTUAL="$(sha256sum < "${WORK}/${ARCHIVE}" | awk '{print $1}')"
 else
@@ -101,8 +100,7 @@ TOOL_DIR="${WORK}/bin"
 mkdir -p "$TOOL_DIR"
 log "Extracting ${BIN}"
 if [[ "$EXT" == "zip" ]]; then
-  # Git Bash on Windows runners may lack `unzip`; fall back to 7z, which is
-  # on PATH there.
+  # Git Bash on Windows runners may lack `unzip`; fall back to 7z, which is on PATH there.
   if command -v unzip >/dev/null 2>&1; then
     unzip -o -q "${WORK}/${ARCHIVE}" "${BIN}" -d "$TOOL_DIR"
   elif command -v 7z >/dev/null 2>&1; then
