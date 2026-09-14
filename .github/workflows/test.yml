@@ -19,10 +19,12 @@ jobs:
         version: [latest, v1.3.0]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - id: setup
-        uses: ./
+        uses: ./ # zizmor: ignore[self-repository] testing the local action in-tree
         with:
           version: ${{ matrix.version }}
 
@@ -32,8 +34,11 @@ jobs:
 
       - name: outputs are populated
         shell: bash
+        env:
+          GCX_VERSION: ${{ steps.setup.outputs.version }}
+          GCX_PATH: ${{ steps.setup.outputs.path }}
         run: |
-          echo "resolved version: ${{ steps.setup.outputs.version }}"
-          echo "binary path:      ${{ steps.setup.outputs.path }}"
-          test -n "${{ steps.setup.outputs.version }}"
-          test -x "${{ steps.setup.outputs.path }}"
+          echo "resolved version: $GCX_VERSION"
+          echo "binary path:      $GCX_PATH"
+          test -n "$GCX_VERSION"
+          test -x "$GCX_PATH"
