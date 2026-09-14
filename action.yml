@@ -1,0 +1,31 @@
+name: Setup gcx
+description: Install the gcx CLI and add it to PATH
+author: Grafana Labs
+branding:
+  icon: download
+  color: orange
+inputs:
+  version:
+    description: 'gcx version to install (e.g. v1.3.0) or "latest"'
+    required: false
+    default: latest
+  github-token:
+    description: Token used for GitHub API calls (release lookup) to avoid rate limits
+    required: false
+    default: ${{ github.token }}
+outputs:
+  version:
+    description: The resolved gcx version that was installed
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: Absolute path to the installed gcx binary
+    value: ${{ steps.install.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      run: ${{ github.action_path }}/install.sh
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ inputs.github-token }}

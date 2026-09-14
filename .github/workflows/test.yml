@@ -1,0 +1,39 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: ${{ matrix.os }} / ${{ matrix.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        version: [latest, v1.3.0]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: setup
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+
+      - name: gcx is on PATH and runs
+        shell: bash
+        run: gcx version
+
+      - name: outputs are populated
+        shell: bash
+        run: |
+          echo "resolved version: ${{ steps.setup.outputs.version }}"
+          echo "binary path:      ${{ steps.setup.outputs.path }}"
+          test -n "${{ steps.setup.outputs.version }}"
+          test -x "${{ steps.setup.outputs.path }}"
