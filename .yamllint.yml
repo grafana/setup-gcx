@@ -4,11 +4,11 @@ extends: default
 rules:
   # action.yml / workflows carry long descriptions and expression strings.
   line-length: disable
-  # GitHub Actions files don't use a document start marker.
-  document-start: disable
+
   # Don't flag the GitHub Actions `on:` key as a truthy value.
   truthy:
     check-keys: false
+
   # SHA-pinned action refs use a single-space `# vX.Y.Z` comment.
   comments:
     min-spaces-from-content: 1

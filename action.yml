@@ -1,3 +1,4 @@
+---
 name: Setup gcx
 description: Install the gcx CLI and add it to PATH
 author: Grafana Labs
