@@ -25,9 +25,8 @@ runs:
   steps:
     - id: install
       shell: bash
-      # Reference $GITHUB_ACTION_PATH (a runtime env var) rather than the
-      # ${{ github.action_path }} template: on Windows the template bakes a
-      # backslash path into the script literal and bash eats the backslashes.
+      # Reference $GITHUB_ACTION_PATH (a runtime env var) rather than the ${{ github.action_path }} template.
+      # On Windows the template bakes a backslash path into the script literal and bash eats the backslashes.
       run: bash "$GITHUB_ACTION_PATH/install.sh"
       env:
         INPUT_VERSION: ${{ inputs.version }}

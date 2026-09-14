@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>grafana/grafana-renovate-config//presets/base"],
+  "customManagers": [
+    {
+      "description": "Update the pinned gcx version tested in the smoke-test matrix",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/test\\.yml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+- (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "description": "Update docker image versions pinned in the Makefile",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Makefile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+ = (?<currentValue>\\S+)"
+      ]
+    }
+  ]
+}
