@@ -36,9 +36,15 @@ request() {
 VERSION_INPUT="${INPUT_VERSION:-latest}"
 if [[ "$VERSION_INPUT" == "latest" ]]; then
   log "Resolving latest gcx release"
-  TAG="$(request "${API}/releases/latest" \
-    | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-  [[ -n "$TAG" ]] || fail "Could not resolve the latest gcx release"
+  # Capture the full response first: piping curl into a reader that closes
+  # early makes curl die writing the rest (exit 23) and pipefail would abort
+  # the script. Parse the captured string with a bash regex — no pipeline,
+  # so no SIGPIPE, and it naturally takes the first match.
+  RELEASE_JSON="$(request "${API}/releases/latest")" \
+    || fail "Could not query the latest gcx release"
+  [[ "$RELEASE_JSON" =~ \"tag_name\":[[:space:]]*\"([^\"]+)\" ]] \
+    || fail "Could not resolve the latest gcx release"
+  TAG="${BASH_REMATCH[1]}"
 else
   TAG="$VERSION_INPUT"
 fi
@@ -76,13 +82,17 @@ curl -sfL -o "${WORK}/${CHECKSUMS}" "${BASE}/${CHECKSUMS}" || fail "Failed to do
 
 # --- 4. Verify sha256 (fail hard on mismatch) -------------------------------
 log "Verifying checksum"
-EXPECTED="$(grep " ${ARCHIVE}\$" "${WORK}/${CHECKSUMS}" | awk '{print $1}')"
+# Match the exact filename field so metacharacters in the name (the dots in
+# e.g. gcx_1.3.0_windows_amd64.zip) aren't treated as a regex.
+EXPECTED="$(awk -v f="$ARCHIVE" '$2 == f {print $1}' "${WORK}/${CHECKSUMS}")"
 [[ -n "$EXPECTED" ]] || fail "No checksum entry for ${ARCHIVE} in ${CHECKSUMS}"
 
+# Read via stdin: GNU sha256sum escapes its output line with a leading `\` when the filename contains
+# backslashes (Windows paths), which corrupts the parsed hash. Feeding stdin yields a filename of "-" with no escaping.
 if command -v sha256sum >/dev/null 2>&1; then
-  ACTUAL="$(sha256sum "${WORK}/${ARCHIVE}" | awk '{print $1}')"
+  ACTUAL="$(sha256sum < "${WORK}/${ARCHIVE}" | awk '{print $1}')"
 else
-  ACTUAL="$(shasum -a 256 "${WORK}/${ARCHIVE}" | awk '{print $1}')"
+  ACTUAL="$(shasum -a 256 < "${WORK}/${ARCHIVE}" | awk '{print $1}')"
 fi
 
 [[ "$EXPECTED" == "$ACTUAL" ]] \
@@ -93,7 +103,14 @@ TOOL_DIR="${WORK}/bin"
 mkdir -p "$TOOL_DIR"
 log "Extracting ${BIN}"
 if [[ "$EXT" == "zip" ]]; then
-  unzip -o -q "${WORK}/${ARCHIVE}" "${BIN}" -d "$TOOL_DIR"
+  # Git Bash on Windows runners may lack `unzip`; fall back to 7z, which is on PATH there.
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -o -q "${WORK}/${ARCHIVE}" "${BIN}" -d "$TOOL_DIR"
+  elif command -v 7z >/dev/null 2>&1; then
+    7z e -y -o"$TOOL_DIR" "${WORK}/${ARCHIVE}" "${BIN}" >/dev/null
+  else
+    fail "Neither unzip nor 7z is available to extract ${ARCHIVE}"
+  fi
 else
   tar -xzf "${WORK}/${ARCHIVE}" -C "$TOOL_DIR" "${BIN}"
 fi

@@ -1,3 +1,2 @@
 # Default owners for everything in this repo.
-# TODO: replace with the appropriate Grafana team before publishing.
-* @grafana/gcx-maintainers
+* @petewall @TylerHelmuth
