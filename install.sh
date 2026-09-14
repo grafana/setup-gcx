@@ -36,8 +36,13 @@ request() {
 VERSION_INPUT="${INPUT_VERSION:-latest}"
 if [[ "$VERSION_INPUT" == "latest" ]]; then
   log "Resolving latest gcx release"
-  TAG="$(request "${API}/releases/latest" \
-    | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+  # Capture the full response first: piping curl into `grep -m1` makes grep
+  # close the pipe early, curl dies writing the rest (exit 23) and pipefail
+  # would abort the script.
+  RELEASE_JSON="$(request "${API}/releases/latest")" \
+    || fail "Could not query the latest gcx release"
+  TAG="$(printf '%s' "$RELEASE_JSON" \
+    | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
   [[ -n "$TAG" ]] || fail "Could not resolve the latest gcx release"
 else
   TAG="$VERSION_INPUT"
@@ -93,7 +98,15 @@ TOOL_DIR="${WORK}/bin"
 mkdir -p "$TOOL_DIR"
 log "Extracting ${BIN}"
 if [[ "$EXT" == "zip" ]]; then
-  unzip -o -q "${WORK}/${ARCHIVE}" "${BIN}" -d "$TOOL_DIR"
+  # Git Bash on Windows runners may lack `unzip`; fall back to 7z, which is
+  # on PATH there.
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -o -q "${WORK}/${ARCHIVE}" "${BIN}" -d "$TOOL_DIR"
+  elif command -v 7z >/dev/null 2>&1; then
+    7z e -y -o"$TOOL_DIR" "${WORK}/${ARCHIVE}" "${BIN}" >/dev/null
+  else
+    fail "Neither unzip nor 7z is available to extract ${ARCHIVE}"
+  fi
 else
   tar -xzf "${WORK}/${ARCHIVE}" -C "$TOOL_DIR" "${BIN}"
 fi
