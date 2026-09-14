@@ -36,14 +36,15 @@ request() {
 VERSION_INPUT="${INPUT_VERSION:-latest}"
 if [[ "$VERSION_INPUT" == "latest" ]]; then
   log "Resolving latest gcx release"
-  # Capture the full response first: piping curl into `grep -m1` makes grep
-  # close the pipe early, curl dies writing the rest (exit 23) and pipefail
-  # would abort the script.
+  # Capture the full response first: piping curl into a reader that closes
+  # early makes curl die writing the rest (exit 23) and pipefail would abort
+  # the script. Parse the captured string with a bash regex — no pipeline,
+  # so no SIGPIPE, and it naturally takes the first match.
   RELEASE_JSON="$(request "${API}/releases/latest")" \
     || fail "Could not query the latest gcx release"
-  TAG="$(printf '%s' "$RELEASE_JSON" \
-    | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-  [[ -n "$TAG" ]] || fail "Could not resolve the latest gcx release"
+  [[ "$RELEASE_JSON" =~ \"tag_name\":[[:space:]]*\"([^\"]+)\" ]] \
+    || fail "Could not resolve the latest gcx release"
+  TAG="${BASH_REMATCH[1]}"
 else
   TAG="$VERSION_INPUT"
 fi
@@ -81,7 +82,9 @@ curl -sfL -o "${WORK}/${CHECKSUMS}" "${BASE}/${CHECKSUMS}" || fail "Failed to do
 
 # --- 4. Verify sha256 (fail hard on mismatch) -------------------------------
 log "Verifying checksum"
-EXPECTED="$(grep " ${ARCHIVE}\$" "${WORK}/${CHECKSUMS}" | awk '{print $1}')"
+# Match the exact filename field so metacharacters in the name (the dots in
+# e.g. gcx_1.3.0_windows_amd64.zip) aren't treated as a regex.
+EXPECTED="$(awk -v f="$ARCHIVE" '$2 == f {print $1}' "${WORK}/${CHECKSUMS}")"
 [[ -n "$EXPECTED" ]] || fail "No checksum entry for ${ARCHIVE} in ${CHECKSUMS}"
 
 # Read via stdin: GNU sha256sum escapes its output line with a leading `\` when the filename contains
