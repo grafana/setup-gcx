@@ -28,7 +28,13 @@ runs:
       shell: bash
       # Reference $GITHUB_ACTION_PATH (a runtime env var) rather than the ${{ github.action_path }} template.
       # On Windows the template bakes a backslash path into the script literal and bash eats the backslashes.
-      run: bash "$GITHUB_ACTION_PATH/install.sh"
+      # Prefer python3, falling back to python (Windows runners expose the interpreter as `python`).
+      run: |
+        if command -v python3 >/dev/null 2>&1; then
+          python3 "$GITHUB_ACTION_PATH/install.py"
+        else
+          python "$GITHUB_ACTION_PATH/install.py"
+        fi
       env:
         INPUT_VERSION: ${{ inputs.version }}
         GH_TOKEN: ${{ inputs.github-token }}
