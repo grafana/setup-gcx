@@ -24,11 +24,17 @@ outputs:
 runs:
   using: composite
   steps:
+    # Not every hosted runner puts a Go toolchain on PATH (macOS does not), so
+    # provision one. go-version-file keeps it in sync with the module, and
+    # cache: false leaves the consumer workflow's Go cache untouched.
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
     - id: install
       shell: bash
       # working-directory resolves ${{ github.action_path }} natively, so the Go
       # module (go.mod + main.go) is the working dir and `go run .` compiles it.
-      # GitHub-hosted Linux, macOS, and Windows runners all ship a Go toolchain.
       working-directory: ${{ github.action_path }}
       run: go run .
       env:
