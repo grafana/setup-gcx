@@ -41,12 +41,14 @@ def request(url):
 
 
 def download(url, dest):
-    """Download url to dest, failing hard on any error."""
-    headers = {}
-    token = os.environ.get("GH_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(url, headers=headers)
+    """Download url to dest, failing hard on any error.
+
+    No Authorization header: release assets are public, and GitHub redirects
+    the download to a different host (release-assets.githubusercontent.com).
+    urllib copies request headers across redirects, so attaching the token
+    here would leak it to the asset host.
+    """
+    req = urllib.request.Request(url)
     with urllib.request.urlopen(req) as resp, open(dest, "wb") as f:
         while True:
             chunk = resp.read(65536)
