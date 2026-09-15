@@ -26,9 +26,11 @@ runs:
   steps:
     - id: install
       shell: bash
-      # Reference $GITHUB_ACTION_PATH (a runtime env var) rather than the ${{ github.action_path }} template.
-      # On Windows the template bakes a backslash path into the script literal and bash eats the backslashes.
-      run: bash "$GITHUB_ACTION_PATH/install.sh"
+      # working-directory resolves ${{ github.action_path }} natively, so the Go
+      # module (go.mod + main.go) is the working dir and `go run .` compiles it.
+      # GitHub-hosted Linux, macOS, and Windows runners all ship a Go toolchain.
+      working-directory: ${{ github.action_path }}
+      run: go run .
       env:
         INPUT_VERSION: ${{ inputs.version }}
         GH_TOKEN: ${{ inputs.github-token }}

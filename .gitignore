@@ -1,0 +1,3 @@
+# Compiled installer binary from `make build` / `go build`
+/setup-gcx
+/setup-gcx.exe

@@ -3,7 +3,7 @@ SHELL := /bin/bash
 ##@ Tests
 
 .PHONY: lint
-lint: lint-yaml lint-actionlint lint-zizmor lint-shell ## Run all linters
+lint: lint-yaml lint-actionlint lint-zizmor lint-go ## Run all linters
 
 .PHONY: lint-yaml
 # renovate: datasource=docker depName=cytopia/yamllint
@@ -35,16 +35,17 @@ lint-zizmor: ## Statically analyze GitHub Actions workflows
 		docker run --rm -v $(shell pwd):/src --workdir /src ghcr.io/zizmorcore/zizmor:$(ZIZMOR_VERSION) .; \
 	fi
 
-.PHONY: lint-shell
-# renovate: datasource=docker depName=koalaman/shellcheck
-SHELLCHECK_VERSION = v0.11.0
-SHELL_SCRIPTS = $(shell find . -type f -name "*.sh" -not -path "./.git/*")
-lint-shell: ## Lint shell scripts
-	@if command -v shellcheck &> /dev/null; then \
-		shellcheck $(SHELL_SCRIPTS); \
-	else \
-		docker run --rm -v $(shell pwd):/src --workdir /src koalaman/shellcheck:$(SHELLCHECK_VERSION) $(SHELL_SCRIPTS); \
+.PHONY: lint-go
+lint-go: ## Vet and format-check Go sources
+	go vet ./...
+	@unformatted="$$(gofmt -l .)"; \
+	if [ -n "$$unformatted" ]; then \
+		echo "gofmt needed for:"; echo "$$unformatted"; exit 1; \
 	fi
+
+.PHONY: build
+build: ## Compile the installer binary
+	go build -o setup-gcx .
 
 ##@ General
 
