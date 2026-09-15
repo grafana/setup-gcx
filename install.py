@@ -15,7 +15,6 @@
 import hashlib
 import json
 import os
-import re
 import stat
 import sys
 import tarfile
@@ -25,15 +24,6 @@ import zipfile
 
 REPO = "grafana/gcx"
 API = f"https://api.github.com/repos/{REPO}"
-
-
-def log(msg):
-    print(f"==> {msg}")
-
-
-def fail(msg):
-    print(f"::error::{msg}", file=sys.stderr)
-    sys.exit(1)
 
 
 def request(url):
@@ -70,22 +60,24 @@ def main():
     # Normalize to tag form (v1.3.0) and asset form (1.3.0 — GoReleaser strips the v).
     version_input = os.environ.get("INPUT_VERSION", "latest") or "latest"
     if version_input == "latest":
-        log("Resolving latest gcx release")
+        print("==> Resolving latest gcx release")
         try:
             release_json = request(f"{API}/releases/latest")
         except urllib.error.URLError:
-            fail("Could not query the latest gcx release")
+            print("::error::Could not query the latest gcx release", file=sys.stderr)
+            sys.exit(1)
         try:
             tag = json.loads(release_json)["tag_name"]
         except (ValueError, KeyError):
-            fail("Could not resolve the latest gcx release")
+            print("::error::Could not resolve the latest gcx release", file=sys.stderr)
+            sys.exit(1)
     else:
         tag = version_input
 
     # tag keeps the leading v; asset filenames drop it.
     tag = "v" + tag[1:] if tag.startswith("v") else "v" + tag
     asset_version = tag[1:]
-    log(f"Installing gcx {tag}")
+    print(f"==> Installing gcx {tag}")
 
     # --- 2. Map runner OS/arch --> gcx asset naming -------------------------
     runner_os = os.environ.get("RUNNER_OS", "")
@@ -95,13 +87,15 @@ def main():
         "Windows": ("windows", "zip", "gcx.exe"),
     }
     if runner_os not in os_map:
-        fail(f"Unsupported runner OS: {runner_os}")
+        print(f"::error::Unsupported runner OS: {runner_os}", file=sys.stderr)
+        sys.exit(1)
     gcx_os, ext, binary = os_map[runner_os]
 
     runner_arch = os.environ.get("RUNNER_ARCH", "")
     arch_map = {"X64": "amd64", "ARM64": "arm64"}
     if runner_arch not in arch_map:
-        fail(f"Unsupported runner arch: {runner_arch}")
+        print(f"::error::Unsupported runner arch: {runner_arch}", file=sys.stderr)
+        sys.exit(1)
     gcx_arch = arch_map[runner_arch]
 
     archive = f"gcx_{asset_version}_{gcx_os}_{gcx_arch}.{ext}"
@@ -115,18 +109,20 @@ def main():
     archive_path = os.path.join(work, archive)
     checksums_path = os.path.join(work, checksums)
 
-    log(f"Downloading {archive}")
+    print(f"==> Downloading {archive}")
     try:
         download(f"{base}/{archive}", archive_path)
     except urllib.error.URLError:
-        fail(f"Failed to download {archive}")
+        print(f"::error::Failed to download {archive}", file=sys.stderr)
+        sys.exit(1)
     try:
         download(f"{base}/{checksums}", checksums_path)
     except urllib.error.URLError:
-        fail(f"Failed to download {checksums}")
+        print(f"::error::Failed to download {checksums}", file=sys.stderr)
+        sys.exit(1)
 
     # --- 4. Verify sha256 (fail hard on mismatch) ---------------------------
-    log("Verifying checksum")
+    print("==> Verifying checksum")
     # Match the exact filename field so metacharacters in the name aren't an issue.
     expected = None
     with open(checksums_path, encoding="utf-8") as f:
@@ -136,7 +132,8 @@ def main():
                 expected = parts[0]
                 break
     if not expected:
-        fail(f"No checksum entry for {archive} in {checksums}")
+        print(f"::error::No checksum entry for {archive} in {checksums}", file=sys.stderr)
+        sys.exit(1)
 
     sha = hashlib.sha256()
     with open(archive_path, "rb") as f:
@@ -145,12 +142,16 @@ def main():
     actual = sha.hexdigest()
 
     if expected != actual:
-        fail(f"Checksum mismatch for {archive}: expected {expected}, got {actual}")
+        print(
+            f"::error::Checksum mismatch for {archive}: expected {expected}, got {actual}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # --- 5. Extract ---------------------------------------------------------
     tool_dir = os.path.join(work, "bin")
     os.makedirs(tool_dir, exist_ok=True)
-    log(f"Extracting {binary}")
+    print(f"==> Extracting {binary}")
     if ext == "zip":
         with zipfile.ZipFile(archive_path) as zf:
             zf.extract(binary, tool_dir)
@@ -160,7 +161,8 @@ def main():
 
     bin_path = os.path.join(tool_dir, binary)
     if not os.path.isfile(bin_path):
-        fail(f"Expected binary {binary} not found in {archive}")
+        print(f"::error::Expected binary {binary} not found in {archive}", file=sys.stderr)
+        sys.exit(1)
     st = os.stat(bin_path)
     os.chmod(bin_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
@@ -171,7 +173,7 @@ def main():
         f.write(f"version={tag}\n")
         f.write(f"path={bin_path}\n")
 
-    log(f"Installed gcx {tag} at {bin_path}")
+    print(f"==> Installed gcx {tag} at {bin_path}")
 
 
 if __name__ == "__main__":
