@@ -7,6 +7,9 @@ Follows the `actions/setup-go` / `grafana/setup-k6-action` pattern: it downloads
 [gcx release](https://github.com/grafana/gcx/releases) asset for the runner, verifies its
 checksum, and puts the binary on `PATH`.
 
+This action only installs the `gcx` binary. It does not configure `gcx` or set any Grafana credentials. You'll need to authenticate `gcx` separately (e.g. by setting the
+appropriate environment variables) in your workflow before running commands that talk to your Grafana instance.
+
 ## Usage
 
 ```yaml
