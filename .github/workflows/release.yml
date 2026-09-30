@@ -1,0 +1,48 @@
+---
+name: release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # need full tag history to find the latest release
+          persist-credentials: true # zizmor: ignore[artipacked] credentials needed to push the moved minor/major tags
+
+      - name: Release latest tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest="$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV | head -n1)"
+          if [[ -z "$latest" ]]; then
+            echo "::notice::No semver tags found; nothing to release"
+            exit 0
+          fi
+
+          if gh release view "$latest" >/dev/null 2>&1; then
+            echo "::notice::$latest has already been released. Push a newer tag and re-run."
+            exit 0
+          fi
+
+          gh release create "$latest" --title "$latest" --generate-notes
+
+          minor="${latest%.*}"
+          major="${latest%%.*}"
+          git tag -f "$minor" "$latest"
+          git push origin "$minor" --force
+          git tag -f "$major" "$latest"
+          git push origin "$major" --force
