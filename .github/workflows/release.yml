@@ -7,21 +7,20 @@ on:
       - 'v[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
-  contents: write
-
-concurrency:
-  group: release
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   release:
     name: Create release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      valid: ${{ steps.validate.outputs.valid }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0 # need every release tag to find the newest one, not just the triggering tag
-          persist-credentials: true # zizmor: ignore[artipacked] credentials needed to push the moved major tag
+          persist-credentials: false
 
       - name: Validate tag
         id: validate
@@ -39,8 +38,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
 
+  promote-major-tag:
+    name: Move major version tag
+    needs: release
+    if: needs.release.outputs.valid == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: promote-major-tag
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # need every release tag to find the newest one, not just the triggering tag
+          persist-credentials: true # zizmor: ignore[artipacked] credentials needed to push the moved major tag
+
       - name: Move major version tag
-        if: steps.validate.outputs.valid == 'true'
         run: |
           major="${GITHUB_REF_NAME%%.*}"
           latest="$(git tag -l "${major}.*" | grep -E "^${major}\.[0-9]+\.[0-9]+$" | sort -rV | head -n1)"
